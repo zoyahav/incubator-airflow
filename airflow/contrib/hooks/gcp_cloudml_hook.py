@@ -224,7 +224,7 @@ class CloudMLHook(GoogleCloudBaseHook):
                     operation.get('error')))
 
             for n in range(0, 9):
-                if operation.get('done', False):
+                if not operation.get('done', False):
                     time.sleep((2**n) + (random.randint(0, 1000) / 1000))
                     request = self._cloudml.projects().operations().get(
                         name=operation['name'])
@@ -234,7 +234,7 @@ class CloudMLHook(GoogleCloudBaseHook):
                 else:
                     logging.info(
                         'successfully deleted version: %s', version_name)
-                    return
+                    return operation
         except errors.HttpError, e:
             if e.resp.status != 429:
                 logging.info('Something went wrong. Not retrying: %s', e)

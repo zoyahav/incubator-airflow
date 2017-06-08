@@ -167,18 +167,73 @@ class TestCloudMLHook(unittest.TestCase):
 
     @_SKIP_IF
     def test_prediction_delete_version(self):
-        # TODO: Implement.
-        pass
+        project = 'test-project'
+        model_name = 'test-model'
+        version = 'test-version'
+        operation_name = 'projects/{}/operations/test-operation'.format(
+            project)
+
+        response_body = {'name': operation_name, 'done': True}
+        succeeded_response = ({'status': '200'}, json.dumps(response_body))
+
+        expected_requests = [
+            ('{}projects/{}/models/{}/versions/{}?alt=json'.format(
+                self._SERVICE_URI_PREFIX, project, model_name, version), 'DELETE',
+             None),
+        ]
+
+        with _TestCloudMLHook(
+                self,
+                responses=[succeeded_response],
+                expected_requests=expected_requests) as cml_hook:
+            delete_version_response = cml_hook.delete_version(
+                project_name=project, model_name=model_name, version_name=version)
+            self.assertEquals(delete_version_response, response_body)
 
     @_SKIP_IF
     def test_prediction_create_model(self):
-        # TODO: Implement.
-        pass
+        project = 'test-project'
+        model_name = 'test-model'
+        model = {
+            'name': model_name,
+        }
+        response_body = {}
+        succeeded_response = ({'status': '200'}, json.dumps(response_body))
+
+        expected_requests = [
+            ('{}projects/{}/models?alt=json'.format(
+                self._SERVICE_URI_PREFIX, project), 'POST',
+             json.dumps(model)),
+        ]
+
+        with _TestCloudMLHook(
+                self,
+                responses=[succeeded_response],
+                expected_requests=expected_requests) as cml_hook:
+            create_model_response = cml_hook.create_model(
+                project_name=project, model=model)
+            self.assertEquals(create_model_response, response_body)
 
     @_SKIP_IF
     def test_prediction_get_model(self):
-        # TODO: Implement.
-        pass
+        project = 'test-project'
+        model_name = 'test-model'
+        response_body = {'model': model_name}
+        succeeded_response = ({'status': '200'}, json.dumps(response_body))
+
+        expected_requests = [
+            ('{}projects/{}/models/{}?alt=json'.format(
+                self._SERVICE_URI_PREFIX, project, model_name), 'GET',
+             None),
+        ]
+
+        with _TestCloudMLHook(
+                self,
+                responses=[succeeded_response],
+                expected_requests=expected_requests) as cml_hook:
+            get_model_response = cml_hook.get_model(
+                project_name=project, model_name=model_name)
+            self.assertEquals(get_model_response, response_body)
 
 
 if __name__ == '__main__':
