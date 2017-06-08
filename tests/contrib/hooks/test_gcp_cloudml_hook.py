@@ -95,6 +95,10 @@ class TestCloudMLHook(unittest.TestCase):
         }
         response_body = json.dumps(my_job)
         succeeded_response = ({'status': '200'}, response_body)
+        queued_response = ({'status': '200'}, json.dumps({
+            'jobId': job_id,
+            'state': 'QUEUED',
+        }))
 
         create_job_request = ('{}projects/{}/jobs?alt=json'.format(
             self._SERVICE_URI_PREFIX, project), 'POST', response_body)
@@ -103,11 +107,14 @@ class TestCloudMLHook(unittest.TestCase):
         expected_requests = [
             create_job_request,
             ask_if_done_request,
+            ask_if_done_request,
         ]
+        responses = [succeeded_response,
+                     queued_response, succeeded_response]
 
         with _TestCloudMLHook(
                 self,
-                responses=[succeeded_response] * 2,
+                responses=responses,
                 expected_requests=expected_requests) as cml_hook:
             create_job_response = cml_hook.create_job(
                 project_name=project, job=my_job)
@@ -166,6 +173,40 @@ class TestCloudMLHook(unittest.TestCase):
             self.assertEquals(set_default_version_response, response_body)
 
     @_SKIP_IF
+    def test_prediction_list_versions(self):
+        project = 'test-project'
+        model_name = 'test-model'
+        operation_name = 'projects/{}/operations/test-operation'.format(
+            project)
+
+        # This test returns the versions one at a time.
+        versions = ['ver_{}'.format(ix) for ix in range(3)]
+
+        response_bodies = [{'name': operation_name, 'nextPageToken': ix, 'versions': [
+            ver]} for ix, ver in enumerate(versions)]
+        response_bodies[-1].pop('nextPageToken')
+        responses = [({'status': '200'}, json.dumps(body))
+                     for body in response_bodies]
+
+        expected_requests = [
+            ('{}projects/{}/models/{}/versions?alt=json&pageSize=100'.format(
+                self._SERVICE_URI_PREFIX, project, model_name), 'GET',
+             None),
+        ] + [
+            ('{}projects/{}/models/{}/versions?pageToken={}&alt=json&pageSize=100'.format(
+                self._SERVICE_URI_PREFIX, project, model_name, ix), 'GET',
+             None) for ix in range(len(versions) - 1)
+        ]
+
+        with _TestCloudMLHook(
+                self,
+                responses=responses,
+                expected_requests=expected_requests) as cml_hook:
+            list_versions_response = cml_hook.list_versions(
+                project_name=project, model_name=model_name)
+            self.assertEquals(list_versions_response, versions)
+
+    @_SKIP_IF
     def test_prediction_delete_version(self):
         project = 'test-project'
         model_name = 'test-model'
@@ -173,22 +214,28 @@ class TestCloudMLHook(unittest.TestCase):
         operation_name = 'projects/{}/operations/test-operation'.format(
             project)
 
-        response_body = {'name': operation_name, 'done': True}
-        succeeded_response = ({'status': '200'}, json.dumps(response_body))
+        not_done_response_body = {'name': operation_name, 'done': False}
+        done_response_body = {'name': operation_name, 'done': True}
+        not_done_response = (
+            {'status': '200'}, json.dumps(not_done_response_body))
+        succeeded_response = (
+            {'status': '200'}, json.dumps(done_response_body))
 
         expected_requests = [
             ('{}projects/{}/models/{}/versions/{}?alt=json'.format(
                 self._SERVICE_URI_PREFIX, project, model_name, version), 'DELETE',
              None),
+            ('{}{}?alt=json'.format(self._SERVICE_URI_PREFIX, operation_name),
+             'GET', None),
         ]
 
         with _TestCloudMLHook(
                 self,
-                responses=[succeeded_response],
+                responses=[not_done_response, succeeded_response],
                 expected_requests=expected_requests) as cml_hook:
             delete_version_response = cml_hook.delete_version(
                 project_name=project, model_name=model_name, version_name=version)
-            self.assertEquals(delete_version_response, response_body)
+            self.assertEquals(delete_version_response, done_response_body)
 
     @_SKIP_IF
     def test_prediction_create_model(self):
