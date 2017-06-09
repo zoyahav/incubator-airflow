@@ -15,6 +15,7 @@
 
 import json
 import unittest
+import urlparse
 
 from airflow.contrib.hooks import gcp_cloudml_hook as hook
 
@@ -48,8 +49,13 @@ class _TestCloudMLHook(object):
 
         self._test_cls = test_cls
         self._responses = responses
-        self._expected_requests = expected_requests
+        self._expected_requests = [
+            self._normalize_requests_for_comparison(x) for x in expected_requests]
         self._actual_requests = []
+
+    def _normalize_requests_for_comparison(self, (uri, http_method, body)):
+        parts = urlparse.urlparse(uri)
+        return (parts._replace(query=set(urlparse.parse_qsl(parts.query))), http_method, body)
 
     def __enter__(self):
         http = HttpMockSequence(self._responses)
@@ -71,7 +77,7 @@ class _TestCloudMLHook(object):
         if any(args):
             return None
         self._test_cls.assertEquals(
-            self._actual_requests, self._expected_requests)
+            [self._normalize_requests_for_comparison(x) for x in self._actual_requests], self._expected_requests)
 
 
 class TestCloudMLHook(unittest.TestCase):
@@ -132,7 +138,7 @@ class TestCloudMLHook(unittest.TestCase):
         succeeded_response = ({'status': '200'}, json.dumps(response_body))
 
         expected_requests = [
-            ('{}projects/{}/models/{}/versions?alt=json'.format(
+            ('{}projects/{}/models/{}/versions?alt=jsn'.format(
                 self._SERVICE_URI_PREFIX, project, model_name), 'POST',
              '"{}"'.format(version)),
             ('{}{}?alt=json'.format(self._SERVICE_URI_PREFIX, operation_name),
@@ -193,7 +199,7 @@ class TestCloudMLHook(unittest.TestCase):
                 self._SERVICE_URI_PREFIX, project, model_name), 'GET',
              None),
         ] + [
-            ('{}projects/{}/models/{}/versions?pageToken={}&alt=json&pageSize=100'.format(
+            ('{}projects/{}/models/{}/versions?alt=json&pageToken={}&pageSize=100'.format(
                 self._SERVICE_URI_PREFIX, project, model_name, ix), 'GET',
              None) for ix in range(len(versions) - 1)
         ]
