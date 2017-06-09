@@ -138,7 +138,7 @@ class TestCloudMLHook(unittest.TestCase):
         succeeded_response = ({'status': '200'}, json.dumps(response_body))
 
         expected_requests = [
-            ('{}projects/{}/models/{}/versions?alt=jsn'.format(
+            ('{}projects/{}/models/{}/versions?alt=json'.format(
                 self._SERVICE_URI_PREFIX, project, model_name), 'POST',
              '"{}"'.format(version)),
             ('{}{}?alt=json'.format(self._SERVICE_URI_PREFIX, operation_name),
